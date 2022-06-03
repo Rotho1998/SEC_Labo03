@@ -22,8 +22,8 @@ use std::sync::Arc;
 use std::thread;
 
 const SERVER_IP: &str = "localhost:4444";
-const KEY_PATH: &str = "key";
-const CERT_PATH: &str = "cert";
+const KEY_PATH: &str = "rsa_private.pem";
+const CERT_PATH: &str = "rsa_cert.pem";
 
 lazy_static! {
     static ref MOTIVATIONAL_QUOTES: Vec<&'static str> = vec![
@@ -81,7 +81,7 @@ fn tls_config(cert_file: &str, key_file: &str) -> Arc<TlsAcceptor> {
 
     let acceptor = TlsAcceptor::builder(identity)
         .min_protocol_version(None)
-        .max_protocol_version(Some(Protocol::Tlsv10))
+        .max_protocol_version(Some(Protocol::Tlsv12))
         .build()
         .expect("Could not build TlsAcceptor");
 

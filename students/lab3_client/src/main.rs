@@ -45,7 +45,7 @@ const SERVER_PORT: &str = "4444";
 fn main() {
     let connector = TlsConnector::builder()
         .min_protocol_version(None)
-        .max_protocol_version(Some(Protocol::Tlsv10))
+        .max_protocol_version(Some(Protocol::Tlsv12))
         .disable_built_in_roots(true)
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
