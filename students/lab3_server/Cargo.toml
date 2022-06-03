@@ -15,3 +15,5 @@ native-tls = "0.2.10"
 strum = "0.24.0"
 strum_macros = "0.24.0"
 rustbreak = { version = "2", features = ["ron_enc"] }
+zxcvbn = "2"
+regex = "1.4.5"

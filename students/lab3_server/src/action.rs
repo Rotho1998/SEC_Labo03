@@ -7,6 +7,7 @@
 use crate::connection::Connection;
 use crate::database::Database;
 use crate::user::{UserAccount, UserRole};
+use crate::validate_inputs::{validate_password, validate_phone, validate_username};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use strum_macros::{EnumIter, EnumString};
@@ -60,6 +61,8 @@ impl Action {
         // Check permissions
         let res = if u.is_anonymous() {
             Err("Anonymous not allowed to change phone")
+        } else if !validate_phone(&phone) {
+            Err("Invalid phone")
         } else {
             let mut user = u.user_account()?;
             user.set_phone_number(phone);
@@ -81,6 +84,10 @@ impl Action {
             Err("Anonymous not allowed to change phone numbers")
         } else if let UserRole::StandardUser = u.user_account()?.role() {
             Err("Standard users not allowed to change other phone numbers")
+        } else if !validate_username(&username) {
+            Err("Invalid username")
+        } else if !validate_phone(&phone) {
+            Err("Invalid phone")
         } else if target_user.is_none() {
             Err("Target user not found")
         } else {
@@ -102,6 +109,12 @@ impl Action {
 
         let res = if u.is_anonymous() {
             Err("Anonymous not allowed to add users")
+        } else if !validate_username(&username) {
+            Err("Invalid username")
+        } else if !validate_password(&password) {
+            Err("Invalid password")
+        } else if !validate_phone(&phone) {
+            Err("Invalid phone")
         } else if let UserRole::HR = u.user_account()?.role() {
             if Database::get(&username)?.is_some() {
                 Err("User already exists")
@@ -130,10 +143,10 @@ impl Action {
                     u.set_username(&username);
                     Ok(())
                 } else {
-                    Err("Invalid password")
+                    Err("Invalid inputs")
                 }
             } else {
-                Err("User does not exist")
+                Err("Invalid inputs")
             }
         };
 

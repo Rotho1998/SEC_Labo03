@@ -7,6 +7,7 @@ mod action;
 mod connection;
 mod database;
 mod user;
+mod validate_inputs;
 
 use crate::action::{Action, ConnectedUser};
 use crate::user::UserRole;

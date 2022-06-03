@@ -6,3 +6,5 @@
 
 ## Modifications
 
+- Modification du message d'erreur en cas de mauvais identifiants lors de la connexion pour qu'on ne sache pas si c'est le mot de passe ou le nom d'utilisateur qui est faux
+- Validation des inputs côté serveur
