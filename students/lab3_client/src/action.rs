@@ -75,7 +75,7 @@ impl Action {
                     println!("{} - {}", u.username, u.phone_number);
                 }
             }
-            Err(e) => {println!("Error while changing phone: {}", e)}
+            Err(e) => {println!("Error while showing users: {}", e)}
         }
 
         Ok(())

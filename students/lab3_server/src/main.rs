@@ -14,8 +14,10 @@ use crate::action::{Action, ConnectedUser};
 use crate::user::UserRole;
 use connection::Connection;
 use lazy_static::lazy_static;
+use log::{error, info, warn};
 use native_tls::{Identity, Protocol, TlsAcceptor};
 use rand::Rng;
+use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
@@ -91,10 +93,17 @@ fn tls_config(cert_file: &str, key_file: &str) -> Arc<TlsAcceptor> {
 }
 
 fn main() {
+    let _logger = TermLogger::init(
+        LevelFilter::Trace,
+        Default::default(),
+        TerminalMode::Stderr,
+        ColorChoice::Auto,
+    )
+    .unwrap();
     // Start TLS server and wait for new connections
     let acceptor = tls_config(CERT_PATH, KEY_PATH);
     let listener = TcpListener::bind(SERVER_IP).unwrap();
-    println!("Server started");
+    info!("Server started");
 
     // Handles new connection, negotiate TLS and call handle_client
     for stream in listener.incoming() {
@@ -105,18 +114,18 @@ fn main() {
                     // TLS handshake on top of the connection using the TlsAcceptor
                     let stream = acceptor.accept(stream);
                     if stream.is_err() {
-                        println!("TLS handshake failed with error: {}", stream.err().unwrap());
+                        error!("TLS handshake failed with error: {}", stream.err().unwrap());
                     } else {
-                        println!("TLS client connection accepted");
+                        info!("TLS client connection accepted");
                         if let Err(e) = handle_client(Connection::new(stream.unwrap())) {
-                            eprintln!("Connection closed: {}", e);
+                            warn!("Connection closed: {}", e);
                             return;
                         }
                     }
                 });
             }
             Err(e) => {
-                println!("Connection failed with error: {}", e);
+                error!("Connection failed with error: {}", e);
             }
         }
     }

@@ -9,6 +9,7 @@ use crate::crypto::{generate_hash, generate_salt};
 use crate::database::Database;
 use crate::user::{UserAccount, UserRole};
 use crate::validate_inputs::{validate_password, validate_phone, validate_username};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use strum_macros::{EnumIter, EnumString};
@@ -61,13 +62,16 @@ impl Action {
 
         // Check permissions
         let res = if u.is_anonymous() {
+            warn!("Anonymous not allowed to change phone");
             Err("Anonymous not allowed to change phone")
         } else if !validate_phone(&phone) {
-            Err("Invalid phone")
+            warn!("Invalid phone format from user {}", u.username());
+            Err("Invalid phone format")
         } else {
             let mut user = u.user_account()?;
             user.set_phone_number(phone);
             Database::insert(&user)?;
+            info!("Phone number changed for user {}", u.username());
             Ok(())
         };
 
@@ -82,19 +86,32 @@ impl Action {
 
         // Check permissions
         let res = if u.is_anonymous() {
+            warn!("Anonymous not allowed to change phone numbers");
             Err("Anonymous not allowed to change phone numbers")
         } else if let UserRole::StandardUser = u.user_account()?.role() {
+            warn!(
+                "Standard users not allowed to change other phone numbers for user {}",
+                u.username()
+            );
             Err("Standard users not allowed to change other phone numbers")
         } else if !validate_username(&username) {
-            Err("Invalid username")
+            warn!("Invalid username format from user {}", u.username());
+            Err("Invalid username format")
         } else if !validate_phone(&phone) {
-            Err("Invalid phone")
+            warn!("Invalid phone format from user {}", u.username());
+            Err("Invalid phone format")
         } else if target_user.is_none() {
+            warn!("Target user not found from user {}", u.username());
             Err("Target user not found")
         } else {
             let mut target_user = target_user.unwrap();
             target_user.set_phone_number(phone);
             Database::insert(&target_user)?;
+            info!(
+                "Phone number changed for user {} from user {}",
+                username,
+                u.username()
+            );
             Ok(())
         };
 
@@ -109,23 +126,34 @@ impl Action {
         let role = u.conn().receive::<UserRole>()?;
 
         let res = if u.is_anonymous() {
+            warn!("Anonymous not allowed to add users");
             Err("Anonymous not allowed to add users")
         } else if !validate_username(&username) {
-            Err("Invalid username")
+            warn!("Invalid username format from user {}", u.username());
+            Err("Invalid username format")
         } else if !validate_password(&password) {
-            Err("Invalid password")
+            warn!("Invalid password format from user {}", u.username());
+            Err("Invalid password format")
         } else if !validate_phone(&phone) {
-            Err("Invalid phone")
+            warn!("Invalid phone format from user {}", u.username());
+            Err("Invalid phone format")
         } else if let UserRole::HR = u.user_account()?.role() {
             if Database::get(&username)?.is_some() {
+                warn!(
+                    "User already exists ({}) from user {}",
+                    username,
+                    u.username()
+                );
                 Err("User already exists")
             } else {
                 let salt = generate_salt();
                 let hash_password = generate_hash(&password, &salt);
                 let user = UserAccount::new(username, hash_password, salt, phone, role);
+                info!("User added in database from user {}", u.username());
                 Ok(Database::insert(&user)?)
             }
         } else {
+            warn!("Only HR is allowed to add users from user {}", u.username());
             Err("Only HR is allowed to add users")
         };
 
@@ -138,22 +166,28 @@ impl Action {
         let password = u.conn().receive::<String>()?;
 
         let res = if !u.is_anonymous() {
+            warn!("User already logged in from user {}", u.username());
             Err("You are already logged in")
         } else if !validate_username(&username) {
-            Err("Invalid username")
+            warn!("Invalid username format");
+            Err("Invalid username format")
         } else if !validate_password(&password) {
-            Err("Invalid password")
+            warn!("Invalid password format");
+            Err("Invalid password format")
         } else {
             let user = Database::get(&username)?;
             if let Some(user) = user {
                 let hash_password = generate_hash(&password, user.salt());
                 if user.password() == hash_password {
                     u.set_username(&username);
+                    info!("{} has logged in", u.username());
                     Ok(())
                 } else {
+                    warn!("Invalid inputs for username : {}", username);
                     Err("Invalid inputs")
                 }
             } else {
+                warn!("Invalid inputs for username : {}", username);
                 Err("Invalid inputs")
             }
         };
@@ -166,8 +200,10 @@ impl Action {
 
         // Check permissions
         res = if u.is_anonymous() {
+            warn!("User already logged out");
             Err("You are not logged in")
         } else {
+            info!("{} has logged out", u.username());
             u.logout();
             Ok(())
         };
