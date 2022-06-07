@@ -5,6 +5,7 @@
 ///             - Log stuff whenever required
 mod action;
 mod connection;
+mod crypto;
 mod database;
 mod user;
 mod validate_inputs;

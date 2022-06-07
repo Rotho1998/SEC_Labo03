@@ -5,6 +5,7 @@
 ///             - Log stuff whenever required
 ///             - Potential improvements
 use crate::connection::Connection;
+use crate::crypto::{generate_hash, generate_salt};
 use crate::database::Database;
 use crate::user::{UserAccount, UserRole};
 use crate::validate_inputs::{validate_password, validate_phone, validate_username};
@@ -119,7 +120,9 @@ impl Action {
             if Database::get(&username)?.is_some() {
                 Err("User already exists")
             } else {
-                let user = UserAccount::new(username, password, phone, role);
+                let salt = generate_salt();
+                let hash_password = generate_hash(&password, &salt);
+                let user = UserAccount::new(username, hash_password, salt, phone, role);
                 Ok(Database::insert(&user)?)
             }
         } else {
@@ -136,10 +139,15 @@ impl Action {
 
         let res = if !u.is_anonymous() {
             Err("You are already logged in")
+        } else if !validate_username(&username) {
+            Err("Invalid username")
+        } else if !validate_password(&password) {
+            Err("Invalid password")
         } else {
             let user = Database::get(&username)?;
             if let Some(user) = user {
-                if user.password() == password {
+                let hash_password = generate_hash(&password, user.salt());
+                if user.password() == hash_password {
                     u.set_username(&username);
                     Ok(())
                 } else {
