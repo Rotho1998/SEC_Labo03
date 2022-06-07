@@ -5,7 +5,7 @@
 ///             - Log stuff whenever required
 ///             - Potential improvements
 use crate::connection::Connection;
-use crate::crypto::{generate_hash, generate_salt};
+use crate::crypto::{generate_hash, generate_salt, verify_hash};
 use crate::database::Database;
 use crate::user::{UserAccount, UserRole};
 use crate::validate_inputs::{validate_password, validate_phone, validate_username};
@@ -54,6 +54,7 @@ impl Action {
     pub fn show_users(u: &mut ConnectedUser) -> Result<(), Box<dyn Error>> {
         let users = Database::values()?;
         let res: Result<Vec<UserAccount>, &str> = Ok(users);
+        info!("Users sent");
         u.conn().send(&res)
     }
 
@@ -148,7 +149,7 @@ impl Action {
             } else {
                 let salt = generate_salt();
                 let hash_password = generate_hash(&password, &salt);
-                let user = UserAccount::new(username, hash_password, salt, phone, role);
+                let user = UserAccount::new(username, hash_password, phone, role);
                 info!("User added in database from user {}", u.username());
                 Ok(Database::insert(&user)?)
             }
@@ -177,8 +178,7 @@ impl Action {
         } else {
             let user = Database::get(&username)?;
             if let Some(user) = user {
-                let hash_password = generate_hash(&password, user.salt());
-                if user.password() == hash_password {
+                if verify_hash(&user.password().to_string(), &password) {
                     u.set_username(&username);
                     info!("{} has logged in", u.username());
                     Ok(())

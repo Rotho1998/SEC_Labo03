@@ -53,7 +53,6 @@ impl Default for Database {
         let u1 = UserAccount::new(
             "default_user".to_string(),
             hash_password_1,
-            salt_1,
             "0784539872".to_string(),
             UserRole::StandardUser,
         );
@@ -61,7 +60,6 @@ impl Default for Database {
         let u2 = UserAccount::new(
             "default_hr".to_string(),
             hash_password_2,
-            salt_2,
             "0793175289".to_string(),
             UserRole::HR,
         );

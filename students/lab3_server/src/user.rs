@@ -13,7 +13,6 @@ pub enum UserRole {
 pub struct UserAccount {
     username: String,
     password: String,
-    salt: Vec<u8>,
     phone_number: String,
     role: UserRole,
 }
@@ -22,14 +21,12 @@ impl UserAccount {
     pub fn new(
         username: String,
         password: String,
-        salt: Vec<u8>,
         phone_number: String,
         role: UserRole,
     ) -> Self {
         Self {
             username,
             password,
-            salt,
             phone_number,
             role,
         }
@@ -41,10 +38,6 @@ impl UserAccount {
 
     pub fn password(&self) -> &str {
         &self.password
-    }
-
-    pub fn salt(&self) -> &Vec<u8> {
-        &self.salt
     }
 
     pub fn role(&self) -> &UserRole {
