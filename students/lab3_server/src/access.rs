@@ -1,0 +1,45 @@
+use std::error::Error;
+use casbin::prelude::*;
+use log::warn;
+use crate::{Action, ConnectedUser, UserRole};
+
+#[tokio::main]
+pub async fn verify_action(u: &mut ConnectedUser, action: &Action) -> bool {
+    let mut e = Enforcer::new("access.conf", "access.csv").await?;
+    e.enable_log(true);
+
+    let sub = match action {
+        Action::ShowUsers => "show_users",
+        Action::ChangeOwnPhone => "change_own_phone",
+        Action::ChangePhone => "change_phone",
+        Action::AddUser => "add_user",
+        Action::Login => "login",
+        Action::Logout => "logout",
+        Action::Exit => "exit",
+    };
+    let obj = if u.is_anonymous() {
+        "anonymous"
+    } else {
+        match u.user_account()?.role() {
+            UserRole::StandardUser => "standard",
+            UserRole::HR => "hr",
+        }
+    };
+
+    if let Ok(authorized) = e.enforce((sub, obj)) {
+        if authorized {
+            true
+        } else {
+            let user = if u.is_anonymous() {
+                "An anonymous user".to_string()
+            } else {
+                u.username()
+            };
+            warn!("{} tried to access a non-authorized action: {:?}", user, action);
+            false
+        }
+    } else {
+        warn!("Error with the access verification");
+        false
+    }
+}

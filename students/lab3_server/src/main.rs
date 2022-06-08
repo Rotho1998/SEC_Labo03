@@ -9,6 +9,7 @@ mod crypto;
 mod database;
 mod user;
 mod validate_inputs;
+mod access;
 
 use crate::action::{Action, ConnectedUser};
 use crate::user::UserRole;

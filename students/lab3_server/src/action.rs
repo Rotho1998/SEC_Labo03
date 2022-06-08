@@ -13,6 +13,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use strum_macros::{EnumIter, EnumString};
+use crate::access::verify_action;
 
 #[derive(Serialize, Deserialize, Debug, EnumString, EnumIter)]
 pub enum Action {
@@ -62,9 +63,9 @@ impl Action {
         let phone = u.conn().receive::<String>()?;
 
         // Check permissions
-        let res = if u.is_anonymous() {
+        let res = if verify_action(u, &Action::ChangeOwnPhone) {
             warn!("Anonymous not allowed to change phone");
-            Err("Anonymous not allowed to change phone")
+            Err("You can't do this action")
         } else if !validate_phone(&phone) {
             warn!("Invalid phone format from user {}", u.username());
             Err("Invalid phone format")
