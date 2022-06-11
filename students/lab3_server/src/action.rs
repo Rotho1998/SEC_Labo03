@@ -53,9 +53,16 @@ impl Action {
     }
 
     pub fn show_users(u: &mut ConnectedUser) -> Result<(), Box<dyn Error>> {
-        let users = Database::values()?;
-        let res: Result<Vec<UserAccount>, &str> = Ok(users);
-        info!("Users sent");
+        // Check permissions
+        let res = match verify_action(u, &Action::ShowUsers) {
+            Ok(true) => {
+                let users = Database::values()?;
+                info!("Users sent");
+                Ok(users)
+            },
+            _ => Err("You can't do this action"),
+        };
+
         u.conn().send(&res)
     }
 
@@ -63,18 +70,20 @@ impl Action {
         let phone = u.conn().receive::<String>()?;
 
         // Check permissions
-        let res = if verify_action(u, &Action::ChangeOwnPhone) {
-            warn!("Anonymous not allowed to change phone");
-            Err("You can't do this action")
-        } else if !validate_phone(&phone) {
-            warn!("Invalid phone format from user {}", u.username());
-            Err("Invalid phone format")
-        } else {
-            let mut user = u.user_account()?;
-            user.set_phone_number(phone);
-            Database::insert(&user)?;
-            info!("Phone number changed for user {}", u.username());
-            Ok(())
+        let res = match verify_action(u, &Action::ChangeOwnPhone) {
+            Ok(true) => {
+                if !validate_phone(&phone) {
+                    warn!("Invalid phone format from user {}", u.username());
+                    Err("Invalid phone format")
+                } else {
+                    let mut user = u.user_account()?;
+                    user.set_phone_number(phone.clone());
+                    Database::insert(&user)?;
+                    info!("Phone number changed for user {}", u.username());
+                    Ok(())
+                }
+            },
+            _ => Err("You can't do this action"),
         };
 
         u.conn().send(&res)
@@ -87,34 +96,26 @@ impl Action {
         let target_user = Database::get(&username)?;
 
         // Check permissions
-        let res = if u.is_anonymous() {
-            warn!("Anonymous not allowed to change phone numbers");
-            Err("Anonymous not allowed to change phone numbers")
-        } else if let UserRole::StandardUser = u.user_account()?.role() {
-            warn!(
-                "Standard users not allowed to change other phone numbers for user {}",
-                u.username()
-            );
-            Err("Standard users not allowed to change other phone numbers")
-        } else if !validate_username(&username) {
-            warn!("Invalid username format from user {}", u.username());
-            Err("Invalid username format")
-        } else if !validate_phone(&phone) {
-            warn!("Invalid phone format from user {}", u.username());
-            Err("Invalid phone format")
-        } else if target_user.is_none() {
-            warn!("Target user not found from user {}", u.username());
-            Err("Target user not found")
-        } else {
-            let mut target_user = target_user.unwrap();
-            target_user.set_phone_number(phone);
-            Database::insert(&target_user)?;
-            info!(
-                "Phone number changed for user {} from user {}",
-                username,
-                u.username()
-            );
-            Ok(())
+        let res = match verify_action(u, &Action::ChangePhone) {
+            Ok(true) => {
+                if !validate_username(&username) {
+                    warn!("Invalid username format from user {}", u.username());
+                    Err("Invalid username format")
+                } else if !validate_phone(&phone) {
+                    warn!("Invalid phone format from user {}", u.username());
+                    Err("Invalid phone format")
+                }else if target_user.is_none() {
+                    warn!("Target user not found from user {}", u.username());
+                    Err("Target user not found")
+                } else {
+                    let mut target_user = target_user.unwrap();
+                    target_user.set_phone_number(phone);
+                    Database::insert(&target_user)?;
+                    info!("Phone number changed for user {} from user {}", username, u.username());
+                    Ok(())
+                }
+            },
+            _ => Err("You can't do this action"),
         };
 
         u.conn().send(&res)
@@ -127,36 +128,30 @@ impl Action {
         let phone = u.conn().receive::<String>()?;
         let role = u.conn().receive::<UserRole>()?;
 
-        let res = if u.is_anonymous() {
-            warn!("Anonymous not allowed to add users");
-            Err("Anonymous not allowed to add users")
-        } else if !validate_username(&username) {
-            warn!("Invalid username format from user {}", u.username());
-            Err("Invalid username format")
-        } else if !validate_password(&password) {
-            warn!("Invalid password format from user {}", u.username());
-            Err("Invalid password format")
-        } else if !validate_phone(&phone) {
-            warn!("Invalid phone format from user {}", u.username());
-            Err("Invalid phone format")
-        } else if let UserRole::HR = u.user_account()?.role() {
-            if Database::get(&username)?.is_some() {
-                warn!(
-                    "User already exists ({}) from user {}",
-                    username,
-                    u.username()
-                );
-                Err("User already exists")
-            } else {
-                let salt = generate_salt();
-                let hash_password = generate_hash(&password, &salt);
-                let user = UserAccount::new(username, hash_password, phone, role);
-                info!("User added in database from user {}", u.username());
-                Ok(Database::insert(&user)?)
-            }
-        } else {
-            warn!("Only HR is allowed to add users from user {}", u.username());
-            Err("Only HR is allowed to add users")
+        // Check permissions
+        let res = match verify_action(u, &Action::AddUser) {
+            Ok(true) => {
+                if !validate_username(&username) {
+                    warn!("Invalid username format from user {}", u.username());
+                    Err("Invalid username format")
+                }else if !validate_password(&password) {
+                    warn!("Invalid password format from user {}", u.username());
+                    Err("Invalid password format")
+                }else if !validate_phone(&phone) {
+                    warn!("Invalid phone format from user {}", u.username());
+                    Err("Invalid phone format")
+                }else if Database::get(&username)?.is_some() {
+                    warn!("User already exists ({}) from user {}", username, u.username());
+                    Err("User already exists")
+                } else {
+                    let salt = generate_salt();
+                    let hash_password = generate_hash(&password, &salt);
+                    let user = UserAccount::new(username, hash_password, phone, role);
+                    info!("User added in database from user {}", u.username());
+                    Ok(Database::insert(&user)?)
+                }
+            },
+            _ => Err("You can't do this action"),
         };
 
         u.conn.send(&res)
@@ -167,46 +162,47 @@ impl Action {
         let username = u.conn().receive::<String>()?;
         let password = u.conn().receive::<String>()?;
 
-        let res = if !u.is_anonymous() {
-            warn!("User already logged in from user {}", u.username());
-            Err("You are already logged in")
-        } else if !validate_username(&username) {
-            warn!("Invalid username format");
-            Err("Invalid username format")
-        } else if !validate_password(&password) {
-            warn!("Invalid password format");
-            Err("Invalid password format")
-        } else {
-            let user = Database::get(&username)?;
-            if let Some(user) = user {
-                if verify_hash(&user.password().to_string(), &password) {
-                    u.set_username(&username);
-                    info!("{} has logged in", u.username());
-                    Ok(())
+        // Check permissions
+        let res = match verify_action(u, &Action::Login) {
+            Ok(true) => {
+                if !validate_username(&username) {
+                    warn!("Invalid username format");
+                    Err("Invalid username format")
+                } else if !validate_password(&password) {
+                    warn!("Invalid password format");
+                    Err("Invalid password format")
                 } else {
-                    warn!("Invalid inputs for username : {}", username);
-                    Err("Invalid inputs")
+                    let user = Database::get(&username)?;
+                    if let Some(user) = user {
+                        if verify_hash(&user.password().to_string(), &password) {
+                            u.set_username(&username);
+                            info!("{} has logged in", u.username());
+                            Ok(())
+                        } else {
+                            warn!("Invalid inputs for username : {}", username);
+                            Err("Invalid inputs")
+                        }
+                    } else {
+                        warn!("Invalid inputs for username : {}", username);
+                        Err("Invalid inputs")
+                    }
                 }
-            } else {
-                warn!("Invalid inputs for username : {}", username);
-                Err("Invalid inputs")
-            }
+            },
+            _ => Err("You can't do this action"),
         };
 
         u.conn.send(&res)
     }
 
     pub fn logout(u: &mut ConnectedUser) -> Result<(), Box<dyn Error>> {
-        let res: Result<(), &str>;
-
         // Check permissions
-        res = if u.is_anonymous() {
-            warn!("User already logged out");
-            Err("You are not logged in")
-        } else {
-            info!("{} has logged out", u.username());
-            u.logout();
-            Ok(())
+        let res = match verify_action(u, &Action::Logout) {
+            Ok(true) => {
+                info!("{} has logged out", u.username());
+                u.logout();
+                Ok(())
+            },
+            _ => Err("You can't do this action"),
         };
 
         u.conn.send(&res)

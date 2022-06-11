@@ -12,5 +12,4 @@
 - Validation des inputs côté serveur
 - Changement de stockage du mot de passe en dur dans la base de donnée, remplacemant par un hash du mot de passe
 - Logging avec la crate `simplelog`
-- 
-
+- Permissions d'accès avec `casbin`
